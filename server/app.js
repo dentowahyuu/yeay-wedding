@@ -38,6 +38,7 @@ try {
 }
 
 // Middleware setup
+// Update the Content Security Policy
 app.use(helmet.contentSecurityPolicy({
   directives: {
     defaultSrc: ["'self'"],
@@ -48,8 +49,10 @@ app.use(helmet.contentSecurityPolicy({
       "https://unpkg.com",
       "https://www.gstatic.com",
       "https://www.googleapis.com",
+      "https://apis.google.com",
       "https://www.gstatic.com/firebasejs/",
-      "'unsafe-inline'"
+      "'unsafe-inline'",
+      "'unsafe-eval'"  // Required for Firebase
     ],
     scriptSrcAttr: ["'self'", "'unsafe-inline'"],
     styleSrc: [
@@ -63,8 +66,20 @@ app.use(helmet.contentSecurityPolicy({
       "https://fonts.gstatic.com",
       "https://cdn.jsdelivr.net"
     ],
-    imgSrc: ["'self'", "data:", "'unsafe-inline'", "blob:"],
-    connectSrc: ["'self'", "https://firestore.googleapis.com", "https://identitytoolkit.googleapis.com"],
+    imgSrc: ["'self'", "data:", "blob:", "*"],
+    connectSrc: [
+      "'self'", 
+      "https://firestore.googleapis.com", 
+      "https://identitytoolkit.googleapis.com",
+      "https://securetoken.googleapis.com",
+      "https://apis.google.com",
+      "https://*.googleapis.com"
+    ],
+    frameSrc: [
+      "'self'",
+      "https://*.firebaseapp.com",
+      "https://*.googleapis.com"
+    ],
     objectSrc: ["'none'"],
     upgradeInsecureRequests: []
   }
@@ -85,8 +100,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Add favicon route to prevent 404 errors
+// Add a simple favicon handler to prevent 500 errors
 app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+  res.status(204).end(); // No content response
 });
 
 // Debug middleware for form submissions

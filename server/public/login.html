@@ -8,7 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <link rel="stylesheet" href="admin/login.css">
-    <script type="module" src="admin/login.js"></script>
+    <!-- Use defer to ensure DOM is loaded before script runs -->
+    <script type="module" src="admin/login.js" defer></script>
 </head>
 <body>
     <div class="login-container">
@@ -20,7 +21,18 @@
         </form>
     </div>
     
-    <!-- Use type="module" for modern JS -->
+    <script>
+        // Simple script to verify the form exists
+        document.addEventListener('DOMContentLoaded', () => {
+            const debugInfo = document.getElementById('debug-info');
+            const loginForm = document.getElementById('login-form');
+            
+            if (debugInfo) {
+                debugInfo.textContent = 'DOM loaded. Login form ' + 
+                    (loginForm ? 'found' : 'not found');
+            }
+        });
+    </script>
 </body>
 </html>
 

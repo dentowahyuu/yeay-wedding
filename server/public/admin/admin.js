@@ -23,6 +23,7 @@ async function initializeAdmin() {
   }
 
   setupUI();
+  // Call ambilData to fetch and display guest data
   await ambilData();
   initializeScanner();
 }
@@ -33,34 +34,79 @@ function redirectToLogin() {
 
 async function ambilData() {
   try {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
+    const token = localStorage.getItem('firebaseToken');
+    const customAuthHeader = localStorage.getItem('customAuthHeader');
+    
+    if (!token || !customAuthHeader) {
+      console.error('No authentication token found');
       await logout();
       return;
     }
 
     const res = await fetch('/admin/data', {
       method: 'GET',
-      headers: { 'Authorization': `Bearer ${token}` },
-      credentials: 'include'
+      headers: { 
+        'X-Firebase-Auth': customAuthHeader
+      }
     });
 
     if (res.status === 401) {
+      // Try to refresh the token
       const newToken = await refreshToken();
       if (newToken) return ambilData();
+      
+      // If refresh failed, logout
       await logout();
       return;
     }
 
-    const data = await res.json();
-    renderTabelData(data);
+    const responseData = await res.json();
+    console.log('Response data:', responseData);
+    
+    // Check if the response has the expected format
+    let dataToRender = [];
+    
+    if (responseData.success && Array.isArray(responseData.data)) {
+      dataToRender = responseData.data;
+    } else if (responseData.success && typeof responseData.data === 'object') {
+      // Convert object to array if needed
+      dataToRender = Object.values(responseData.data);
+    } else if (Array.isArray(responseData)) {
+      dataToRender = responseData;
+    } else if (typeof responseData === 'object' && responseData !== null) {
+      // Try to extract data from the response object
+      if (responseData.data) {
+        if (Array.isArray(responseData.data)) {
+          dataToRender = responseData.data;
+        } else {
+          dataToRender = Object.values(responseData.data);
+        }
+      } else {
+        // If no data property, try to use the object itself
+        const possibleDataArray = Object.values(responseData).find(val => Array.isArray(val));
+        if (possibleDataArray) {
+          dataToRender = possibleDataArray;
+        } else {
+          // Last resort: try to convert the entire object to an array
+          dataToRender = Object.values(responseData);
+        }
+      }
+    }
+    
+    console.log('Data to render:', dataToRender);
+    renderTabelData(dataToRender);
+    
+    // Hide highlight banner if it exists
     hideHighlightBanner();
   } catch (error) {
     console.error('Fetch error:', error);
     tampilkanAlert('Gagal mengambil data tamu', 'danger');
+    // Render empty table to avoid UI issues
+    renderTabelData([]);
   }
 }
 
+// Add the missing hideHighlightBanner function
 function hideHighlightBanner() {
   const highlightBanner = document.getElementById('highlightBanner');
   if (highlightBanner) {
@@ -77,7 +123,7 @@ function renderTabelData(data) {
   
   tbody.innerHTML = '';
   
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     const emptyRow = document.createElement('tr');
     emptyRow.innerHTML = '<td colspan="6" class="text-center">Tidak ada data tamu</td>';
     tbody.appendChild(emptyRow);
@@ -85,18 +131,23 @@ function renderTabelData(data) {
   }
   
   data.forEach(item => {
+    if (!item) return; // Skip null/undefined items
+    
     const row = document.createElement('tr');
-    row.dataset.id = item.id_tamu; // Tambahkan data-id untuk mempermudah pencarian
+    // Use id_tamu instead of id for the data-id attribute
+    row.dataset.id = item.id_tamu || ''; 
+    
+    // Handle potential missing properties safely
     row.innerHTML = ` 
-      <td>${item.nama}</td>
-      <td>${item.kehadiran}</td>
-      <td>${item.pesan}</td>
+      <td>${item.nama || 'N/A'}</td>
+      <td>${item.kehadiran || 'N/A'}</td>
+      <td>${item.pesan || 'N/A'}</td>
       <td>${formatTimestamp(item.timestamp)}</td>
-      <td>${item.id_tamu}</td>
+      <td>${item.id_tamu || 'N/A'}</td>
       <td>${item.scanned ? `Sudah Dipindai (${formatTimestamp(item.timestamp_scan)})` : 'Belum Dipindai'}</td>
     `;
 
-    // Tambahkan warna jika sudah dipindai
+    // Add color if already scanned
     if (item.scanned) {
       row.classList.add('table-success');
     }
@@ -334,44 +385,44 @@ function onScanSuccess(decodedText, decodedResult) {
 
 // Fungsi untuk mengupdate status kehadiran tamu
 async function updateScan(idTamu) {
-  const token = localStorage.getItem('adminToken');
-  
-  if (!token) {
-    tampilkanAlert('Sesi login tidak valid. Silakan login kembali.', 'danger');
-    logout();
-    return;
-  }
-  
   try {
+    const token = localStorage.getItem('firebaseToken');
+    const customAuthHeader = localStorage.getItem('customAuthHeader');
+    
+    if (!token || !customAuthHeader) {
+      tampilkanAlert('Sesi login tidak valid. Silakan login kembali.', 'danger');
+      logout();
+      return;
+    }
+    
     const response = await fetch('/admin/updateScan', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
+        'X-Firebase-Auth': customAuthHeader
       },
-      credentials: 'include',
       body: JSON.stringify({ idTamu })
     });
     
     if (response.status === 401) {
-      // Coba refresh token
+      // Try to refresh token
       const newToken = await refreshToken();
       if (!newToken) {
         logout();
         return;
       }
       
-      // Coba lagi dengan token baru
+      // Try again with refreshed token
       return updateScan(idTamu);
     }
     
     const data = await response.json();
     
     if (response.ok) {
-      // Tampilkan notifikasi sukses
+      // Display success notification
       tampilkanAlert(`<strong>Sukses!</strong> ${data.message}`, 'success');
       
-      // Perbarui data tamu dan sembunyikan highlight banner setelah scan
+      // Update guest data and hide highlight banner after scan
       ambilData();
     } else {
       tampilkanAlert(data.message || 'Gagal memperbarui status kehadiran', 'danger');
