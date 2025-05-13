@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background: #f5f5f5;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 20px;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ccc;
+  text-align: left;
+}
+
+th {
+  background-color: #ddd;
+}
+
+input[type="text"] {
+  padding: 5px;
+  width: 300px;
+}
+
+#reader {
+  width: 300px;
+  margin-top: 20px;
+}
+
+    .highlight-search {
+      background-color: rgba(255, 243, 205, 0.5);
+    }
+    #highlightBanner {
+      transition: all 0.3s ease-in-out;
+      animation: highlightPulse 2s infinite;
+    }
+    
+    @keyframes highlightPulse {
+      0% { box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+      50% { box-shadow: 0 0 20px rgba(40, 167, 69, 0.8); }
+      100% { box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+    }

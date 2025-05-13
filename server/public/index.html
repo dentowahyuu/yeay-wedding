@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Konfirmasi Kehadiran</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="script.js" defer></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="sapaan"></div>
+  <h2>Form Konfirmasi Kehadiran & Ucapan</h2>
+  <form id="form">
+    <label>Nama:</label><br>
+    <input type="text" id="nama" required><br><br>
+    <label>Ucapan:</label><br>
+    <textarea id="pesan" required></textarea><br><br>
+    <label>Konfirmasi Kehadiran:</label><br>
+    <select id="kehadiran" required>
+      <option value="">-- Pilih --</option>
+      <option value="Hadir">Hadir</option>
+      <option value="Tidak Hadir">Tidak Hadir</option>
+    </select><br><br>
+    <button type="submit">Kirim</button>
+  </form>
+  <div id="hasil"></div>
+  <div id="qrcode"></div>
+  <div id="downloadLink"></div>
+</body>
+</html>
