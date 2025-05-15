@@ -124,6 +124,45 @@ class RsvpController {
       res.status(500).json({ success: false, message: "Gagal memperbarui status kehadiran" });
     }
   }
+
+  /**
+   * Delete guest data by ID
+   */
+  async deleteGuest(req, res) {
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "ID tamu harus disediakan" });
+    }
+
+    try {
+      const db = admin.firestore();
+      const docRef = db.collection("ucapan").doc(id);
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        return res.status(404).json({ success: false, message: "Tamu tidak ditemukan" });
+      }
+
+      // Periksa apakah tamu sudah dipindai
+      if (!doc.data().scanned) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Hanya data tamu yang sudah dipindai yang dapat dihapus" 
+        });
+      }
+
+      await docRef.delete();
+
+      res.status(200).json({
+        success: true,
+        message: "Data tamu berhasil dihapus"
+      });
+    } catch (error) {
+      console.error("Error menghapus data tamu:", error);
+      res.status(500).json({ success: false, message: "Gagal menghapus data tamu" });
+    }
+  }
 }
 
 module.exports = new RsvpController();

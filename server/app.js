@@ -78,7 +78,12 @@ app.use(helmet.contentSecurityPolicy({
     frameSrc: [
       "'self'",
       "https://*.firebaseapp.com",
-      "https://*.googleapis.com"
+      "https://*.googleapis.com",
+      "https://*.google.com",
+      "https://www.google.com",
+      "https://picsum.photos",  // Tambahkan domain picsum.photos
+      "https://*.picsum.photos",  // Tambahkan wildcard untuk subdomain picsum.photos
+      "https://fastly.picsum.photos"
     ],
     objectSrc: ["'none'"],
     upgradeInsecureRequests: []
@@ -127,6 +132,7 @@ app.post('/submit-rsvp', rsvpController.submitRsvp);
 // Admin protected routes
 app.get('/admin/data', verifyAuth, requireAdmin, rsvpController.getAllGuests);
 app.post('/admin/updateScan', verifyAuth, requireAdmin, rsvpController.updateScanStatus);
+app.post('/admin/deleteGuest', verifyAuth, requireAdmin, rsvpController.deleteGuest); // Tambahkan rute baru ini
 
 // Global error handler
 app.use((err, req, res, next) => {

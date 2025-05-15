@@ -114,6 +114,70 @@ function hideHighlightBanner() {
   }
 }
 
+// Tambahkan fungsi deleteGuest setelah fungsi updateScan
+async function deleteGuest(id) {
+  if (!confirm('Apakah Anda yakin ingin menghapus data tamu ini?')) {
+    return;
+  }
+  
+  console.log('Attempting to delete guest with ID:', id);
+  
+  try {
+    const token = localStorage.getItem('firebaseToken');
+    const customAuthHeader = localStorage.getItem('customAuthHeader');
+    
+    if (!token || !customAuthHeader) {
+      tampilkanAlert('Sesi login tidak valid. Silakan login kembali.', 'danger');
+      logout();
+      return;
+    }
+    
+    // Gunakan URL relatif terhadap base URL aplikasi
+    const baseUrl = window.location.pathname.includes('/admin') 
+      ? '../../admin/deleteGuest' 
+      : '/admin/deleteGuest';
+    
+    console.log('Using URL:', baseUrl);
+    
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Firebase-Auth': customAuthHeader
+      },
+      body: JSON.stringify({ id })
+    });
+    
+    if (response.status === 401) {
+      // Try to refresh token
+      const newToken = await refreshToken();
+      if (!newToken) {
+        logout();
+        return;
+      }
+      
+      // Try again with refreshed token
+      return deleteGuest(id);
+    }
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      // Display success notification
+      tampilkanAlert(`<strong>Sukses!</strong> ${data.message}`, 'success');
+      
+      // Update guest data
+      ambilData();
+    } else {
+      tampilkanAlert(data.message || 'Gagal menghapus data tamu', 'danger');
+    }
+  } catch (error) {
+    console.error("Error deleting guest:", error);
+    tampilkanAlert("Gagal menghapus data tamu", "danger");
+  }
+}
+
+// Modifikasi fungsi renderTabelData untuk menambahkan tombol delete tanpa onclick
 function renderTabelData(data) {
   const tbody = document.querySelector("#tabelData tbody");
   if (!tbody) {
@@ -125,7 +189,7 @@ function renderTabelData(data) {
   
   if (!data || !Array.isArray(data) || data.length === 0) {
     const emptyRow = document.createElement('tr');
-    emptyRow.innerHTML = '<td colspan="6" class="text-center">Tidak ada data tamu</td>';
+    emptyRow.innerHTML = '<td colspan="7" class="text-center">Tidak ada data tamu</td>';
     tbody.appendChild(emptyRow);
     return;
   }
@@ -136,6 +200,7 @@ function renderTabelData(data) {
     const row = document.createElement('tr');
     // Use id_tamu instead of id for the data-id attribute
     row.dataset.id = item.id_tamu || ''; 
+    row.dataset.docId = item.id || ''; // Tambahkan document ID sebagai data attribute
     
     // Handle potential missing properties safely
     row.innerHTML = ` 
@@ -145,6 +210,11 @@ function renderTabelData(data) {
       <td>${formatTimestamp(item.timestamp)}</td>
       <td>${item.id_tamu || 'N/A'}</td>
       <td>${item.scanned ? `Sudah Dipindai (${formatTimestamp(item.timestamp_scan)})` : 'Belum Dipindai'}</td>
+      <td>
+        ${item.scanned ? 
+          `<button class="btn btn-danger btn-sm delete-btn">Hapus</button>` : 
+          '-'}
+      </td>
     `;
 
     // Add color if already scanned
@@ -159,7 +229,64 @@ function renderTabelData(data) {
 
     tbody.appendChild(row);
   });
+  
+  // Tambahkan event listener untuk tombol delete menggunakan event delegation
+  tbody.addEventListener('click', function(e) {
+    if (e.target.classList.contains('delete-btn')) {
+      const row = e.target.closest('tr');
+      const id = row.dataset.docId;
+      if (id) {
+        deleteGuest(id);
+      }
+    }
+  });
 }
+
+// Perbarui juga highlight banner untuk menggunakan class daripada onclick
+function updateHighlightBanner(dataTamu) {
+  const highlightBanner = document.getElementById('highlightBanner');
+  if (!highlightBanner) return;
+  
+  highlightBanner.style.display = 'block';
+  highlightBanner.innerHTML = `
+    <div class="row align-items-center">
+      <div class="col-md-2 text-center">
+        <i class="bi bi-person-check-fill fs-1 text-success"></i>
+      </div>
+      <div class="col-md-8">
+        <h4>${dataTamu.nama}</h4>
+        <div class="row mt-2">
+          <div class="col-md-6">
+            <p><strong>ID:</strong> ${dataTamu.id}</p>
+            <p><strong>Kehadiran:</strong> ${dataTamu.kehadiran}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Status:</strong> ${dataTamu.status}</p>
+            <p><strong>Waktu Daftar:</strong> ${dataTamu.timestamp}</p>
+          </div>
+        </div>
+        <p class="text-truncate"><strong>Pesan:</strong> ${dataTamu.pesan}</p>
+      </div>
+      <div class="col-md-2 text-center">
+        ${dataTamu.status.includes('Sudah Dipindai') ? 
+          `<button class="btn btn-danger delete-banner-btn" data-id="${dataTamu.id.split(' ')[0]}">Hapus Data</button>` : 
+          ''}
+      </div>
+    </div>
+  `;
+  
+  // Tambahkan event listener untuk tombol delete di banner
+  const deleteBtn = highlightBanner.querySelector('.delete-banner-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      if (id) {
+        deleteGuest(id);
+      }
+    });
+  }
+}
+
 
 // Format timestamp dengan lebih baik
 function formatTimestamp(timestamp) {
@@ -222,7 +349,8 @@ function cariTamu() {
         pesan: row.cells[2].innerText,
         timestamp: row.cells[3].innerText,
         id: row.cells[4].innerText,
-        status: row.cells[5].innerText
+        status: row.cells[5].innerText,
+        docId: row.dataset.docId // Tambahkan docId ke dataTamu
       };
       
       // Scroll ke baris yang ditemukan
@@ -241,7 +369,7 @@ function cariTamu() {
         <div class="col-md-2 text-center">
           <i class="bi bi-person-check-fill fs-1 text-success"></i>
         </div>
-        <div class="col-md-10">
+        <div class="col-md-8">
           <h4>${dataTamu.nama}</h4>
           <div class="row mt-2">
             <div class="col-md-6">
@@ -255,8 +383,24 @@ function cariTamu() {
           </div>
           <p class="text-truncate"><strong>Pesan:</strong> ${dataTamu.pesan}</p>
         </div>
+        <div class="col-md-2 text-center">
+          ${dataTamu.status.includes('Sudah Dipindai') ? 
+            `<button class="btn btn-danger delete-banner-btn" data-id="${dataTamu.docId}">Hapus Data</button>` : 
+            ''}
+        </div>
       </div>
     `;
+    
+    // Tambahkan event listener untuk tombol delete di banner
+    const deleteBtn = highlightBanner.querySelector('.delete-banner-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function() {
+        const id = this.getAttribute('data-id');
+        if (id) {
+          deleteGuest(id);
+        }
+      });
+    }
     
     if (hasilScan) {
       hasilScan.innerHTML = "";
@@ -300,6 +444,7 @@ function initializeScanner() {
 }
 
 // Fungsi ketika QR Code berhasil dipindai
+// Fungsi ketika QR Code berhasil dipindai
 function onScanSuccess(decodedText, decodedResult) {
   const input = document.getElementById("scanInput");
   if (!input) {
@@ -331,7 +476,8 @@ function onScanSuccess(decodedText, decodedResult) {
         pesan: row.cells[2].innerText,
         timestamp: row.cells[3].innerText,
         id: row.cells[4].innerText,
-        status: row.cells[5].innerText
+        status: row.cells[5].innerText,
+        docId: row.dataset.docId // Tambahkan docId ke dataTamu
       };
       
       // Scroll ke baris yang ditemukan
@@ -358,7 +504,7 @@ function onScanSuccess(decodedText, decodedResult) {
         <div class="col-md-2 text-center">
           <i class="bi bi-person-check-fill fs-1 text-success"></i>
         </div>
-        <div class="col-md-10">
+        <div class="col-md-8">
           <h4>${dataTamu.nama}</h4>
           <div class="row mt-2">
             <div class="col-md-6">
@@ -372,8 +518,24 @@ function onScanSuccess(decodedText, decodedResult) {
           </div>
           <p class="text-truncate"><strong>Pesan:</strong> ${dataTamu.pesan}</p>
         </div>
+        <div class="col-md-2 text-center">
+          ${dataTamu.status.includes('Sudah Dipindai') ? 
+            `<button class="btn btn-danger delete-banner-btn" data-id="${dataTamu.docId}">Hapus Data</button>` : 
+            ''}
+        </div>
       </div>
     `;
+    
+    // Tambahkan event listener untuk tombol delete di banner
+    const deleteBtn = highlightBanner.querySelector('.delete-banner-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function() {
+        const id = this.getAttribute('data-id');
+        if (id) {
+          deleteGuest(id);
+        }
+      });
+    }
   } else {
     // Sembunyikan highlight banner jika tidak ditemukan
     if (highlightBanner) {
